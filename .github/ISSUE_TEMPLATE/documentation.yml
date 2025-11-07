@@ -1,0 +1,58 @@
+name: Documentation Improvement
+description: Suggest improvements to documentation
+title: "[Docs]: "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve our documentation!
+  
+  - type: dropdown
+    id: doc-type
+    attributes:
+      label: Documentation Type
+      description: What type of documentation needs improvement?
+      options:
+        - README
+        - Script Usage Documentation
+        - Code Comments
+        - Contributing Guidelines
+        - Setup Instructions
+        - Troubleshooting Guide
+        - Other
+    validations:
+      required: true
+  
+  - type: input
+    id: location
+    attributes:
+      label: Documentation Location
+      description: Which file or section needs improvement?
+      placeholder: "e.g., README.md, SalesforceApp/README.md"
+    validations:
+      required: true
+  
+  - type: textarea
+    id: issue
+    attributes:
+      label: What is unclear or missing?
+      description: Describe what's confusing, missing, or could be improved.
+    validations:
+      required: true
+  
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested Improvement
+      description: How would you improve this documentation?
+      placeholder: Provide specific suggestions or examples of what should be added or changed.
+    validations:
+      required: true
+  
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context, examples, or screenshots about the documentation improvement.
+

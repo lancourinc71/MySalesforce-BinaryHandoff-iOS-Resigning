@@ -1,0 +1,12 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Code of Conduct
+    url: https://github.com/salesforce/MySalesforce-BinaryHandoff-iOS-Resigning/blob/main/CODE_OF_CONDUCT.md
+    about: Please follow our Code of Conduct
+  - name: Contributing Guidelines
+    url: https://github.com/salesforce/MySalesforce-BinaryHandoff-iOS-Resigning/blob/main/CONTRIBUTING.md
+    about: Learn how to contribute to this project
+  - name: Security Policy
+    url: https://github.com/salesforce/MySalesforce-BinaryHandoff-iOS-Resigning/blob/main/SECURITY.md
+    about: Report security vulnerabilities
+

@@ -1,0 +1,91 @@
+name: Bug Report
+description: File a bug report to help us improve
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report! Please provide as much detail as possible.
+  
+  - type: dropdown
+    id: script-type
+    attributes:
+      label: Script Type
+      description: Which script are you having issues with?
+      options:
+        - Salesforce App Resign Script
+        - Experience Cloud Resign Script
+        - Both
+        - Other
+    validations:
+      required: true
+  
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Tell us what you see!
+    validations:
+      required: true
+  
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps To Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Run script with command '...'
+        2. With IPA file '...'
+        3. See error
+    validations:
+      required: true
+  
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+  
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: A clear and concise description of what actually happened.
+    validations:
+      required: true
+  
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Log Output
+      description: Please copy and paste any relevant log output. This will be automatically formatted into code.
+      render: shell
+  
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS Version
+      description: What version of macOS are you running?
+      placeholder: "e.g., 14.0 (Sonoma), 13.5 (Ventura)"
+    validations:
+      required: true
+  
+  - type: input
+    id: xcode-version
+    attributes:
+      label: Xcode Version
+      description: What version of Xcode/Command Line Tools do you have?
+      placeholder: "e.g., Xcode 15.0"
+    validations:
+      required: true
+  
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here (e.g., provisioning profile type, certificate type, IPA structure).
+
