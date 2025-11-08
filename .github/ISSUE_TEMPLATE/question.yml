@@ -1,0 +1,76 @@
+name: Question or Support
+description: Ask a question or get help with the scripts
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question? We're here to help! Please check the README and existing issues first.
+  
+  - type: dropdown
+    id: question-type
+    attributes:
+      label: Question Type
+      description: What kind of help do you need?
+      options:
+        - Usage Question
+        - Setup/Configuration Help
+        - Troubleshooting
+        - Best Practices
+        - Other
+    validations:
+      required: true
+  
+  - type: dropdown
+    id: script-type
+    attributes:
+      label: Related Script
+      description: Which script is your question about?
+      options:
+        - Salesforce App Resign Script
+        - Experience Cloud Resign Script
+        - Both
+        - General Question
+    validations:
+      required: true
+  
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know?
+    validations:
+      required: true
+  
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Provide any relevant context about what you're trying to accomplish.
+      placeholder: "I'm trying to..."
+  
+  - type: textarea
+    id: attempted
+    attributes:
+      label: What Have You Tried?
+      description: Have you already tried anything to solve this? What did you try?
+  
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS Version (if applicable)
+      placeholder: "e.g., 14.0 (Sonoma)"
+  
+  - type: input
+    id: xcode-version
+    attributes:
+      label: Xcode Version (if applicable)
+      placeholder: "e.g., Xcode 15.0"
+  
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Information
+      description: Any other information that might be helpful.
+
