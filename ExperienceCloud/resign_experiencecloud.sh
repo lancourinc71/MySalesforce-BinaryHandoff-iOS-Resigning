@@ -583,7 +583,7 @@ function delete_app_entitlements() {
 # Arguments:
 #   None
 #######################################
-function replace_provising_profile() {
+function replace_provisioning_profile() {
     # Validate required variables
     if [[ -z "${APP_NAME}" ]] || [[ -z "${PAYLOAD_PATH}" ]] || [[ -z "${MOBILEPROVISION}" ]] || [[ -z "${EXTENSION_MOBILEPROVISION}" ]]; then
         echo "Error: Required variables are not set" >&2
@@ -597,8 +597,8 @@ function replace_provising_profile() {
         return 1
     fi
     
-    echo "*** Replace Provising Profile ***"
-    echo "Replacing provising profile in ${APP_NAME}"
+    echo "*** Replace Provisioning Profile ***"
+    echo "Replacing provisioning profile in ${APP_NAME}"
     
     if ! cp "${MOBILEPROVISION}" "${app_dir}/embedded.mobileprovision"; then
         echo "Error: Unable to copy ${MOBILEPROVISION} to ${app_dir}/embedded.mobileprovision" >&2
@@ -612,7 +612,7 @@ function replace_provising_profile() {
         [[ -e "$dir" ]] || continue
         found_appex=true
         
-        echo "Replacing provising profile in ${dir}"
+        echo "Replacing provisioning profile in ${dir}"
         if ! cp "${EXTENSION_MOBILEPROVISION}" "${dir}/embedded.mobileprovision"; then
             echo "Error: Unable to copy ${EXTENSION_MOBILEPROVISION} to ${dir}/embedded.mobileprovision" >&2
             return 1
@@ -624,7 +624,7 @@ function replace_provising_profile() {
         echo "Warning: No app extensions found"
     fi
     
-    echo "*** Replace Provising Profile Completed ***"
+    echo "*** Replace Provisioning Profile Completed ***"
 }
 
 #######################################
@@ -1028,7 +1028,7 @@ main()
 {
     if [ "$1" == "-h" ]; then
         echo "Usage: `basename $0`"
-        echo "\t--input-ipa-paths [your ipa file absolute path. eg: /Users/example/app.ipa]"
+        echo "\t--input-ipa-path [your ipa file absolute path. eg: /Users/example/app.ipa]"
         echo "\t--output-dir [resigned ipa absolute folder path. eg: /Users/example/output/]"
         echo "\t--signing-identity [to list current identities list using: security find-identity. eg: iPhone Developer: John Doe (ABC123).]"
         echo "\t--mobileprovision [absolute path of mobileprovision. eg: /Users/example/app.mobileprovision]"
@@ -1048,7 +1048,7 @@ main()
 
     while test $# -gt 0; do
         case "$1" in
-            --input-ipa-paths)
+            --input-ipa-path)
             shift
             readonly FILE=$1
             shift
@@ -1171,7 +1171,7 @@ main()
     fi
     
     # Replace provisioning profiles
-    if ! replace_provising_profile; then
+    if ! replace_provisioning_profile; then
         log "ERROR" "Failed to replace provisioning profiles"
         exit 1
     fi

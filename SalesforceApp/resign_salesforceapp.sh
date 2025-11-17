@@ -466,8 +466,8 @@ function delete_app_entitlements() {
 #   None
 
 #######################################
-function replace_provising_profiles() {
-    log "DEBUG" "Starting replace_provising_profiles function"
+function replace_provisioning_profiles() {
+    log "DEBUG" "Starting replace_provisioning_profiles function"
     # Validate required variables
     if [[ -z "${APP_NAME}" ]] || [[ -z "${PAYLOAD_PATH}" ]] || [[ -z "${MOBILEPROVISION}" ]] || [[ -z "${NOTIFICATION_EXTENSION_MOBILEPROVISION}" ]] || [[ -z "${WIDGET_EXTENSION_MOBILEPROVISION}" ]] || [[ -z "${CALL_DIRECTORY_EXTENSION_MOBILEPROVISION}" ]]; then
         log "ERROR" "Required variables are not set"
@@ -479,8 +479,8 @@ function replace_provising_profiles() {
         log "ERROR" "App directory ${app_dir} does not exist"
         return 1
     fi
-    log "INFO" "*** Replace Provising Profile ***"
-    log "INFO" "Replacing provising profile in ${APP_NAME}"
+    log "INFO" "*** Replace Provisioning Profile ***"
+    log "INFO" "Replacing provisioning profile in ${APP_NAME}"
     log "DEBUG" "Copying main app mobileprovision: ${MOBILEPROVISION}"
     if ! cp "${MOBILEPROVISION}" "${app_dir}/embedded.mobileprovision"; then
         log "ERROR" "Unable to copy ${MOBILEPROVISION} to ${app_dir}/embedded.mobileprovision"
@@ -505,7 +505,7 @@ function replace_provising_profiles() {
         return 1
     fi
     log "DEBUG" "Successfully copied SAppCallDirectoryExtension mobileprovision"
-    log "INFO" "*** Replace Provising Profile Completed ***"
+    log "INFO" "*** Replace Provisioning Profile Completed ***"
 }
 
 #######################################
@@ -1208,7 +1208,7 @@ main()
 {
     if [ "$1" == "-h" ]; then
         echo "Usage: `basename $0`"
-        echo "\t--input-ipa-full-path [your ipa file absolute path. eg: /Users/example/app.ipa]"
+        echo "\t--input-ipa-path [your ipa file absolute path. eg: /Users/example/app.ipa]"
         echo "\t--output-dir [resigned ipa absolute folder path. eg: /Users/example/output/]"
         echo "\t--signing-identity [list current identities using command: 'security find-identity' example: 'iPhone Developer: John Doe (ABC123)']"
         echo "\t--team-id [signing identity's apple team id]"
@@ -1221,13 +1221,13 @@ main()
         exit 0
     fi
     if [ $# -lt 7 ]; then
-        echo "Invaid Input Arguments." >&2
-        echo "run ./resign.sh -h for more info"
+        echo "Invalid Input Arguments." >&2
+        echo "run ./resign_salesforceapp.sh -h for more info"
         exit 1
     fi
     while test $# -gt 0; do
         case "$1" in
-            --input-ipa-full-path)
+            --input-ipa-path)
             shift
             readonly FILE=$1
             shift
@@ -1365,7 +1365,7 @@ main()
         exit 1
     fi
     # Replace provisioning profiles
-    if ! replace_provising_profiles; then
+    if ! replace_provisioning_profiles; then
         log "ERROR" "Failed to replace provisioning profiles"
         exit 1
     fi

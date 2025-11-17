@@ -22,7 +22,7 @@ This script automates the process of resigning iOS applications, allowing you to
 
 | Parameter | Description | Example |
 |-----------|-------------|---------|
-| `--input-ipa-paths` | Path to input IPA file | `/Users/you/app.ipa` |
+| `--input-ipa-path` | Path to input IPA file | `/Users/you/app.ipa` |
 | `--output-dir` | Output directory | `/Users/you/output/` |
 | `--signing-identity` | Signing identity from keychain | `iPhone Developer: John Doe (ABC123)` |
 | `--team-id` | Apple team ID | `ABC123DEF4` |
@@ -37,7 +37,7 @@ This script automates the process of resigning iOS applications, allowing you to
 
 ```bash
 ./resign_experiencecloud.sh \
-  --input-ipa-paths "/Users/you/app.ipa" \
+  --input-ipa-path "/Users/you/app.ipa" \
   --output-dir "/Users/you/output/" \
   --signing-identity "iPhone Developer: John Doe (ABC123)" \
   --team-id "ABC123DEF4" \
