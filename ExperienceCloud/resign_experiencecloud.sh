@@ -22,7 +22,7 @@ log() {
             echo "WARN: $message" >&2
             ;;
         "INFO")
-            echo "INFO: $message"
+            echo "INFO: $message" >&2
             ;;
         "DEBUG")
             if [[ "$VERBOSE" == true ]]; then
@@ -206,12 +206,8 @@ validate_provisioning_profiles() {
             profile_bundle_id=$(grep -o '"application-identifier"[[:space:]]*:[[:space:]]*"[^"]*"' "${temp_file}" | cut -d'"' -f4 | sed 's/^[^.]*\.//')
         fi
         local profile_team_id=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "${temp_file}" 2>/dev/null)
-        # Extract app group identifier from provisioning profile
-        local profile_app_group=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.security.application-groups:0' "${temp_file}" 2>/dev/null)
-        # Alternative - look for any app group pattern
-        if [[ -z "${profile_app_group}" ]]; then
-            profile_app_group=$(grep -o '"com.apple.security.application-groups"[[:space:]]*:[[:space:]]*\[[^]]*\]' "${temp_file}" | grep -o '"[^"]*"' | head -1 | tr -d '"')
-        fi
+        # Extract all app groups from provisioning profile
+        local profile_app_groups=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.security.application-groups' "${temp_file}" 2>/dev/null)
         if [[ -z "${profile_bundle_id}" ]]; then
             log "ERROR" "No bundle identifier found in main provisioning profile"
             rm -f "${temp_file}"
@@ -222,8 +218,8 @@ validate_provisioning_profiles() {
             rm -f "${temp_file}"
             return 1
         fi
-        if [[ -z "${profile_app_group}" ]]; then
-            log "ERROR" "No app group identifier found in main provisioning profile"
+        if [[ -z "${profile_app_groups}" ]]; then
+            log "ERROR" "No app group identifiers found in main provisioning profile"
             rm -f "${temp_file}"
             return 1
         fi
@@ -243,16 +239,19 @@ validate_provisioning_profiles() {
             rm -f "${temp_file}"
             return 1
         fi
-        # Validate app group identifier
-        if [[ "${profile_app_group}" != "${APP_GROUP_IDENTIFIER}" ]]; then
+        # Validate app group identifier - check if APP_GROUP_IDENTIFIER exists in any of the groups
+        if ! echo "${profile_app_groups}" | grep -q "${APP_GROUP_IDENTIFIER}"; then
             log "ERROR" "App group identifier mismatch in main provisioning profile"
             log "ERROR" "Expected: ${APP_GROUP_IDENTIFIER}"
-            log "ERROR" "Found: ${profile_app_group}"
+            log "ERROR" "Available groups in profile:"
+            echo "${profile_app_groups}" | grep -v "Array {" | grep -v "}" | while read group; do
+                log "ERROR" "  - ${group}"
+            done
             rm -f "${temp_file}"
             return 1
         fi
         log "SUCCESS" "Main app provisioning profile validation passed"
-        log "INFO" "Bundle ID: ${profile_bundle_id}, Team ID: ${profile_team_id}, App Group: ${profile_app_group}"
+        log "INFO" "Bundle ID: ${profile_bundle_id}, Team ID: ${profile_team_id}, App Group: ${APP_GROUP_IDENTIFIER} found"
         rm -f "${temp_file}"
     else
         log "ERROR" "Main provisioning profile not found: ${MOBILEPROVISION}"
@@ -275,12 +274,8 @@ validate_provisioning_profiles() {
             profile_bundle_id=$(grep -o '"application-identifier"[[:space:]]*:[[:space:]]*"[^"]*"' "${temp_file}" | cut -d'"' -f4 | sed 's/^[^.]*\.//')
         fi
         local profile_team_id=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "${temp_file}" 2>/dev/null)
-        # Extract app group identifier from provisioning profile
-        local profile_app_group=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.security.application-groups:0' "${temp_file}" 2>/dev/null)
-        # Alternative - look for any app group pattern
-        if [[ -z "${profile_app_group}" ]]; then
-            profile_app_group=$(grep -o '"com.apple.security.application-groups"[[:space:]]*:[[:space:]]*\[[^]]*\]' "${temp_file}" | grep -o '"[^"]*"' | head -1 | tr -d '"')
-        fi
+        # Extract all app groups from provisioning profile
+        local profile_app_groups=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.security.application-groups' "${temp_file}" 2>/dev/null)
         if [[ -z "${profile_bundle_id}" ]]; then
             log "ERROR" "No bundle identifier found in extension provisioning profile"
             rm -f "${temp_file}"
@@ -291,8 +286,8 @@ validate_provisioning_profiles() {
             rm -f "${temp_file}"
             return 1
         fi
-        if [[ -z "${profile_app_group}" ]]; then
-            log "ERROR" "No app group identifier found in extension provisioning profile"
+        if [[ -z "${profile_app_groups}" ]]; then
+            log "ERROR" "No app group identifiers found in extension provisioning profile"
             rm -f "${temp_file}"
             return 1
         fi
@@ -312,16 +307,19 @@ validate_provisioning_profiles() {
             rm -f "${temp_file}"
             return 1
         fi
-        # Validate app group identifier
-        if [[ "${profile_app_group}" != "${APP_GROUP_IDENTIFIER}" ]]; then
+        # Validate app group identifier - check if APP_GROUP_IDENTIFIER exists in any of the groups
+        if ! echo "${profile_app_groups}" | grep -q "${APP_GROUP_IDENTIFIER}"; then
             log "ERROR" "App group identifier mismatch in extension provisioning profile"
             log "ERROR" "Expected: ${APP_GROUP_IDENTIFIER}"
-            log "ERROR" "Found: ${profile_app_group}"
+            log "ERROR" "Available groups in profile:"
+            echo "${profile_app_groups}" | grep -v "Array {" | grep -v "}" | while read group; do
+                log "ERROR" "  - ${group}"
+            done
             rm -f "${temp_file}"
             return 1
         fi
         log "SUCCESS" "Extension provisioning profile validation passed"
-        log "INFO" "Bundle ID: ${profile_bundle_id}, Team ID: ${profile_team_id}, App Group: ${profile_app_group}"
+        log "INFO" "Bundle ID: ${profile_bundle_id}, Team ID: ${profile_team_id}, App Group: ${APP_GROUP_IDENTIFIER} found"
         rm -f "${temp_file}"
     else
         log "ERROR" "Extension provisioning profile not found: ${EXTENSION_MOBILEPROVISION}"
@@ -383,6 +381,50 @@ function unzip_ipa() {
     log "DEBUG" "Extracted APP_NAME: ${APP_NAME}"
     
     log "INFO" "*** Unzip IPA Completed ***"
+}
+
+#######################################
+# Validate IPA structure after extraction
+# Globals:
+#   PAYLOAD_PATH
+# Returns:
+#   0 if valid, 1 if invalid
+#######################################
+validate_ipa_structure() {
+    log "INFO" "*** Validating IPA Structure ***"
+
+    # Check Payload directory exists
+    if [[ ! -d "${PAYLOAD_PATH}" ]]; then
+        log "ERROR" "Payload directory not found: ${PAYLOAD_PATH}"
+        return 1
+    fi
+
+    # Count .app bundles in Payload
+    local app_bundles=()
+    shopt -s nullglob
+    for app in "${PAYLOAD_PATH}"/*.app; do
+        [[ -e "$app" ]] || continue
+        app_bundles+=("$(basename "$app")")
+    done
+    shopt -u nullglob
+
+    local app_count=${#app_bundles[@]}
+
+    if [[ ${app_count} -eq 0 ]]; then
+        log "ERROR" "No .app bundle found in Payload directory"
+        log "ERROR" "This does not appear to be a valid iOS IPA file"
+        return 1
+    elif [[ ${app_count} -gt 1 ]]; then
+        log "ERROR" "Multiple .app bundles found in Payload directory:"
+        for app in "${app_bundles[@]}"; do
+            log "ERROR" "  - ${app}"
+        done
+        log "ERROR" "Expected exactly one .app bundle"
+        return 1
+    fi
+
+    log "INFO" "IPA structure validated: Found ${app_bundles[0]}"
+    return 0
 }
 
 #######################################
@@ -487,41 +529,40 @@ function delete_signature() {
 function delete_app_entitlements() {
     # Validate required variables
     if [[ -z "${PAYLOAD_PATH}" ]] || [[ -z "${APP_NAME}" ]] || [[ -z "${DESTINATION_FOLDER_PATH}" ]] || [[ -z "${TEAM_ID}" ]] || [[ -z "${BUNDLE_IDENTIFIER}" ]]; then
-        echo "Error: Required variables are not set" >&2
+        log "ERROR" "Required variables are not set"
         return 1
     fi
-    
-    echo "*** Delete App Entitlement ***" 
-    echo "Removing entitlements ${PAYLOAD_PATH}/${APP_NAME}/"
+
+    log "INFO" "*** Delete App Entitlement ***"
+    log "INFO" "Removing entitlements from ${PAYLOAD_PATH}/${APP_NAME}/"
     local entitlements="${DESTINATION_FOLDER_PATH}/${APP_NAME%.*}_entitlement.plist"
-    
+
     if ! codesign -d --entitlements :- "${PAYLOAD_PATH}/${APP_NAME}" > "${entitlements}"; then
-        echo "Error: Failed to extract entitlements from main app" >&2
+        log "ERROR" "Failed to extract entitlements from main app"
         return 1
     fi
-    
-    if ! /usr/libexec/PlistBuddy -c 'Delete beta-reports-active' "${entitlements}"; then
-        echo "Error: Failed to delete beta-reports-active from entitlements" >&2
-        return 1
-    fi
+
+    # Try to delete beta-reports-active, but don't fail if it doesn't exist
+    /usr/libexec/PlistBuddy -c 'Delete beta-reports-active' "${entitlements}" 2>/dev/null || true
+    log "DEBUG" "Attempted to remove beta-reports-active (may not exist)"
     
     if ! /usr/libexec/PlistBuddy -c "Set application-identifier ${TEAM_ID}.${BUNDLE_IDENTIFIER}" "${entitlements}"; then
-        echo "Error: Failed to set application-identifier" >&2
+        log "ERROR" "Failed to set application-identifier"
         return 1
     fi
-    
+
     if ! /usr/libexec/PlistBuddy -c "Set com.apple.developer.team-identifier ${TEAM_ID}" "${entitlements}"; then
-        echo "Error: Failed to set team-identifier" >&2
+        log "ERROR" "Failed to set team-identifier"
         return 1
     fi
-    
+
     if ! /usr/libexec/PlistBuddy -c "Set :keychain-access-groups:0 ${TEAM_ID}.${BUNDLE_IDENTIFIER}" "${entitlements}"; then
-        echo "Error: Failed to set keychain-access-groups" >&2
+        log "ERROR" "Failed to set keychain-access-groups"
         return 1
     fi
-    
+
     if ! /usr/libexec/PlistBuddy -c "Set :com.apple.security.application-groups:0 group.${BUNDLE_IDENTIFIER}" "${entitlements}"; then
-        echo "Error: Failed to set application-groups" >&2
+        log "ERROR" "Failed to set application-groups"
         return 1
     fi
 
@@ -532,48 +573,47 @@ function delete_app_entitlements() {
         [[ -e "$dir" ]] || continue
         found_appex=true
         
-        echo "Removing entitlements from ${dir}"
+        log "INFO" "Removing entitlements from ${dir}"
         local app_name_extension
         app_name_extension=$(basename "${dir}")
         local extension_entitlements="${DESTINATION_FOLDER_PATH}/${app_name_extension%.*}_entitlement.plist"
 
         if ! codesign -d --entitlements :- "${dir}" > "${extension_entitlements}"; then
-            echo "Error: Failed to extract entitlements from ${dir}" >&2
+            log "ERROR" "Failed to extract entitlements from ${dir}"
             return 1
         fi
-        
-        if ! /usr/libexec/PlistBuddy -c 'Delete beta-reports-active' "${extension_entitlements}"; then
-            echo "Error: Failed to delete beta-reports-active from extension entitlements" >&2
-            return 1
-        fi
+
+        # Try to delete beta-reports-active, but don't fail if it doesn't exist
+        /usr/libexec/PlistBuddy -c 'Delete beta-reports-active' "${extension_entitlements}" 2>/dev/null || true
+        log "DEBUG" "Attempted to remove beta-reports-active from extension (may not exist)"
         
         if ! /usr/libexec/PlistBuddy -c "Set com.apple.developer.team-identifier ${TEAM_ID}" "${extension_entitlements}"; then
-            echo "Error: Failed to set team-identifier for extension" >&2
+            log "ERROR" "Failed to set team-identifier for extension"
             return 1
         fi
-        
+
         if ! /usr/libexec/PlistBuddy -c "Set application-identifier ${TEAM_ID}.${EXTENSION_BUNDLE_IDENTIFIER}" "${extension_entitlements}"; then
-            echo "Error: Failed to set application-identifier for extension" >&2
+            log "ERROR" "Failed to set application-identifier for extension"
             return 1
         fi
-        
+
         if ! /usr/libexec/PlistBuddy -c "Set :keychain-access-groups:0 ${TEAM_ID}.${BUNDLE_IDENTIFIER}" "${extension_entitlements}"; then
-            echo "Error: Failed to set keychain-access-groups for extension" >&2
+            log "ERROR" "Failed to set keychain-access-groups for extension"
             return 1
         fi
-        
+
         if ! /usr/libexec/PlistBuddy -c "Set :com.apple.security.application-groups:0 group.${BUNDLE_IDENTIFIER}" "${extension_entitlements}"; then
-            echo "Error: Failed to set application-groups for extension" >&2
+            log "ERROR" "Failed to set application-groups for extension"
             return 1
         fi
     done
     shopt -u nullglob
-    
+
     if [[ "$found_appex" == false ]]; then
-        echo "Warning: No app extensions found"
+        log "WARN" "No app extensions found"
     fi
 
-    echo "*** Delete App Entitlement Completed ***"
+    log "INFO" "*** Delete App Entitlement Completed ***"
 }
 
 #######################################
@@ -586,45 +626,45 @@ function delete_app_entitlements() {
 function replace_provisioning_profile() {
     # Validate required variables
     if [[ -z "${APP_NAME}" ]] || [[ -z "${PAYLOAD_PATH}" ]] || [[ -z "${MOBILEPROVISION}" ]] || [[ -z "${EXTENSION_MOBILEPROVISION}" ]]; then
-        echo "Error: Required variables are not set" >&2
+        log "ERROR" "Required variables are not set"
         return 1
     fi
-    
+
     local app_dir="${PAYLOAD_PATH}/${APP_NAME}"
-    
+
     if [[ ! -d "${app_dir}" ]]; then
-        echo "Error: App directory ${app_dir} does not exist" >&2
+        log "ERROR" "App directory ${app_dir} does not exist"
         return 1
     fi
-    
-    echo "*** Replace Provisioning Profile ***"
-    echo "Replacing provisioning profile in ${APP_NAME}"
-    
+
+    log "INFO" "*** Replace Provisioning Profile ***"
+    log "INFO" "Replacing provisioning profile in ${APP_NAME}"
+
     if ! cp "${MOBILEPROVISION}" "${app_dir}/embedded.mobileprovision"; then
-        echo "Error: Unable to copy ${MOBILEPROVISION} to ${app_dir}/embedded.mobileprovision" >&2
+        log "ERROR" "Unable to copy ${MOBILEPROVISION} to ${app_dir}/embedded.mobileprovision"
         return 1
     fi
-    
+
     # Process app extensions
     local found_appex=false
     shopt -s nullglob
     for dir in "${app_dir}"/*/*.appex ; do
         [[ -e "$dir" ]] || continue
         found_appex=true
-        
-        echo "Replacing provisioning profile in ${dir}"
+
+        log "INFO" "Replacing provisioning profile in ${dir}"
         if ! cp "${EXTENSION_MOBILEPROVISION}" "${dir}/embedded.mobileprovision"; then
-            echo "Error: Unable to copy ${EXTENSION_MOBILEPROVISION} to ${dir}/embedded.mobileprovision" >&2
+            log "ERROR" "Unable to copy ${EXTENSION_MOBILEPROVISION} to ${dir}/embedded.mobileprovision"
             return 1
         fi
     done
     shopt -u nullglob
-    
+
     if [[ "$found_appex" == false ]]; then
-        echo "Warning: No app extensions found"
+        log "WARN" "No app extensions found"
     fi
-    
-    echo "*** Replace Provisioning Profile Completed ***"
+
+    log "INFO" "*** Replace Provisioning Profile Completed ***"
 }
 
 #######################################
@@ -637,22 +677,22 @@ function replace_provisioning_profile() {
 function update_plist() {
     # Validate required variables
     if [[ -z "${PAYLOAD_PATH}" ]] || [[ -z "${APP_NAME}" ]] || [[ -z "${BUNDLE_IDENTIFIER}" ]]; then
-        echo "Error: Required variables are not set" >&2
+        log "ERROR" "Required variables are not set"
         return 1
     fi
-    
+
     local app_dir="${PAYLOAD_PATH}/${APP_NAME}"
-    
+
     if [[ ! -d "${app_dir}" ]]; then
-        echo "Error: App directory ${app_dir} does not exist" >&2
+        log "ERROR" "App directory ${app_dir} does not exist"
         return 1
     fi
-    
-    echo "*** Updating Bundle ID in Plist ***"
-    echo "Updating bundle identifier in ${app_dir}/Info.plist with value ${BUNDLE_IDENTIFIER}"
-    
+
+    log "INFO" "*** Updating Bundle ID in Plist ***"
+    log "INFO" "Updating bundle identifier in ${app_dir}/Info.plist with value ${BUNDLE_IDENTIFIER}"
+
     if ! /usr/libexec/PlistBuddy -c "Set CFBundleIdentifier ${BUNDLE_IDENTIFIER}" "${app_dir}/Info.plist"; then
-        echo "Error: Unable to update bundle identifier in plist" >&2
+        log "ERROR" "Unable to update bundle identifier in plist"
         return 1
     fi
 
@@ -662,24 +702,24 @@ function update_plist() {
     for dir in "${app_dir}"/*/*.appex ; do
         [[ -e "$dir" ]] || continue
         found_appex=true
-        
+
         local app_name_extension
         app_name_extension=$(basename "${dir}")
-        echo "Updating bundle identifier in ${dir}/Info.plist with value ${BUNDLE_IDENTIFIER}.${app_name_extension%.*}"
-        
+        log "INFO" "Updating bundle identifier in ${dir}/Info.plist with value ${EXTENSION_BUNDLE_IDENTIFIER}"
+
         if ! /usr/libexec/PlistBuddy -c "Set CFBundleIdentifier ${EXTENSION_BUNDLE_IDENTIFIER}" "${dir}/Info.plist"; then
-            echo "Error: Unable to update bundle identifier in ${dir}/Info.plist " >&2
+            log "ERROR" "Unable to update bundle identifier in ${dir}/Info.plist"
             return 1
         fi
-        
+
     done
     shopt -u nullglob
-    
+
     if [[ "$found_appex" == false ]]; then
-        echo "Warning: No app extensions found"
+        log "WARN" "No app extensions found"
     fi
-    
-    echo "*** Update Bundle ID in Plist Completed ***"
+
+    log "INFO" "*** Update Bundle ID in Plist Completed ***"
     
     # Update CFBundleVersion if supplied
     log "DEBUG" "Updating bundle versions for all components"
@@ -796,13 +836,17 @@ function codesign_frameworks() {
         
         # Verify the codesign
         log "DEBUG" "Verifying codesign for ${dir}"
-        if ! codesign -vv "${dir}" >/dev/null 2>&1; then
+        local verify_output
+        if ! verify_output=$(codesign -vv "${dir}" 2>&1); then
             log "ERROR" "Failed to verify codesign for ${dir}"
+            log "ERROR" "Verification output:"
+            echo "${verify_output}" | while IFS= read -r line; do
+                log "ERROR" "  ${line}"
+            done
             failed_codesign=true
             continue
         fi
-        
-        log "DEBUG" "Successfully codesigned ${dir}"
+        log "DEBUG" "Codesign verification passed for ${dir}"
     done
     
     # Disable nullglob
@@ -858,7 +902,7 @@ function codesign_ipa() {
         
         local app_name_extension
         app_name_extension=$(basename "${dir}")
-        local entitlements_file="${DESTINATION_FOLDER_PATH}/${app_name_extension%.*}_ENTITLEMENT.plist"
+        local entitlements_file="${DESTINATION_FOLDER_PATH}/${app_name_extension%.*}_entitlement.plist"
         
         log "INFO" "Codesigning app extension: ${app_name_extension}"
         log "DEBUG" "Entitlements file: ${entitlements_file}"
@@ -884,11 +928,17 @@ function codesign_ipa() {
         
         # Verify the codesign
         log "DEBUG" "Verifying codesign for app extension: ${dir}"
-        if ! codesign -vv "${dir}" >/dev/null 2>&1; then
+        local verify_output
+        if ! verify_output=$(codesign -vv "${dir}" 2>&1); then
             log "ERROR" "Failed to verify codesign for ${dir}"
+            log "ERROR" "Verification output:"
+            echo "${verify_output}" | while IFS= read -r line; do
+                log "ERROR" "  ${line}"
+            done
             failed_codesign=true
             continue
         fi
+        log "DEBUG" "Codesign verification passed for extension: ${dir}"
         
         # Clean up entitlements file
         log "DEBUG" "Cleaning up entitlements file: ${entitlements_file}"
@@ -929,10 +979,16 @@ function codesign_ipa() {
     
     # Verify the main app codesign
     log "DEBUG" "Verifying codesign for main app: ${app_dir}"
-    if ! codesign -vv "${app_dir}" >/dev/null 2>&1; then
+    local verify_output
+    if ! verify_output=$(codesign -vv "${app_dir}" 2>&1); then
         log "ERROR" "Failed to verify codesign for main app ${app_dir}"
+        log "ERROR" "Verification output:"
+        echo "${verify_output}" | while IFS= read -r line; do
+            log "ERROR" "  ${line}"
+        done
         return 1
     fi
+    log "DEBUG" "Codesign verification passed for main app"
     
     # Clean up main entitlements file
     log "DEBUG" "Cleaning up main entitlements file: ${main_entitlements_file}"
@@ -959,69 +1015,113 @@ function codesign_ipa() {
 function zip_ipa() {
     # Validate required variables
     if [[ -z "${DESTINATION_FOLDER_PATH}" ]]; then
-        echo "Error: DESTINATION_FOLDER_PATH variable is not set" >&2
+        log "ERROR" "DESTINATION_FOLDER_PATH variable is not set"
         return 1
     fi
-    
+
     if [[ ! -d "${DESTINATION_FOLDER_PATH}" ]]; then
-        echo "Error: Destination directory ${DESTINATION_FOLDER_PATH} does not exist" >&2
+        log "ERROR" "Destination directory ${DESTINATION_FOLDER_PATH} does not exist"
         return 1
     fi
-    
+
     # Check if required directories exist
     if [[ ! -d "${DESTINATION_FOLDER_PATH}/Payload" ]]; then
-        echo "Error: Payload directory does not exist in ${DESTINATION_FOLDER_PATH}" >&2
+        log "ERROR" "Payload directory does not exist in ${DESTINATION_FOLDER_PATH}"
         return 1
     fi
-    
-    echo "*** Zip IPA File ***"
-    
+
+    log "INFO" "*** Zip IPA File ***"
+
     # Store current directory to restore later
     local current_dir
     current_dir=$(pwd)
-    
+
     # Change to destination directory
     if ! cd "${DESTINATION_FOLDER_PATH}"; then
-        echo "Error: Failed to change to directory ${DESTINATION_FOLDER_PATH}" >&2
+        log "ERROR" "Failed to change to directory ${DESTINATION_FOLDER_PATH}"
         return 1
     fi
-    
+
     local output_file="resigned.ipa"
-    
+
     # Create the zip file
-    echo "Creating ${output_file}..."
+    log "INFO" "Creating ${output_file}..."
     if ! zip -qr "${output_file}" Payload/* 2>/dev/null; then
-        echo "Error: Failed to create zip file ${output_file}" >&2
+        log "ERROR" "Failed to create zip file ${output_file}"
         cd "${current_dir}" || true
         return 1
     fi
-    
+
+    # Include SwiftSupport if present (required for Swift apps)
+    if [[ -d "SwiftSupport" ]]; then
+        log "INFO" "Including SwiftSupport directory for App Store compatibility"
+        if zip -qr "${output_file}" SwiftSupport/* 2>/dev/null; then
+            log "INFO" "SwiftSupport included successfully"
+        else
+            log "WARN" "Failed to include SwiftSupport (may not be required)"
+        fi
+    fi
+
     # Verify the zip file was created
     if [[ ! -f "${output_file}" ]]; then
-        echo "Error: Zip file ${output_file} was not created" >&2
+        log "ERROR" "Zip file ${output_file} was not created"
         cd "${current_dir}" || true
         return 1
     fi
-    
+
     # Clean up temporary files
-    echo "Cleaning up temporary files..."
+    log "INFO" "Cleaning up temporary files..."
     if [[ -d "${PAYLOAD_PATH}" ]]; then
         if ! rm -rf "${PAYLOAD_PATH}"; then
-            echo "Warning: Failed to remove ${PAYLOAD_PATH}" >&2
+            log "WARN" "Failed to remove ${PAYLOAD_PATH}"
         fi
     fi
-    
+
     if [[ -d "${SYMBOLS_PATH}" ]]; then
         if ! rm -rf "${SYMBOLS_PATH}"; then
-            echo "Warning: Failed to remove ${SYMBOLS_PATH}" >&2
+            log "WARN" "Failed to remove ${SYMBOLS_PATH}"
         fi
     fi
-    
+
     # Restore original directory
     cd "${current_dir}" || true
-    
-    echo "Your resigned app is located in: ${DESTINATION_FOLDER_PATH}/${output_file}"
-    echo "*** Zip IPA File Completed ***"
+
+    log "INFO" "Your resigned app is located in: ${DESTINATION_FOLDER_PATH}/${output_file}"
+    log "INFO" "*** Zip IPA File Completed ***"
+}
+
+#######################################
+# Auto-detect extension bundle identifier suffix from IPA
+# Globals:
+#   PAYLOAD_PATH, APP_NAME
+# Returns:
+#   Extension suffix (e.g., "NotificationServiceExtension")
+#######################################
+detect_extension_suffix() {
+    log "DEBUG" "Auto-detecting extension bundle identifier"
+    local app_dir="${PAYLOAD_PATH}/${APP_NAME}"
+
+    # Check PlugIns directory first (iOS 8+)
+    if [[ -d "${app_dir}/PlugIns" ]]; then
+        for dir in "${app_dir}/PlugIns"/*.appex ; do
+            [[ -e "$dir" ]] || continue
+            local extension_info_plist="${dir}/Info.plist"
+            if [[ -f "${extension_info_plist}" ]]; then
+                local detected_bundle_id=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "${extension_info_plist}" 2>/dev/null)
+                if [[ -n "${detected_bundle_id}" ]]; then
+                    # Extract suffix after last dot
+                    local extension_suffix="${detected_bundle_id##*.}"
+                    log "INFO" "Detected extension suffix: ${extension_suffix}"
+                    echo "${extension_suffix}"
+                    return 0
+                fi
+            fi
+        done
+    fi
+
+    # Fallback to default
+    log "WARN" "Could not auto-detect extension, using default: NotificationServiceExtension"
+    echo "NotificationServiceExtension"
 }
 
 main() 
@@ -1102,14 +1202,29 @@ main()
 
     readonly PAYLOAD_PATH="${DESTINATION_FOLDER_PATH}/Payload"
     readonly SYMBOLS_PATH="${DESTINATION_FOLDER_PATH}/Symbols"
-    
-    # Always create EXTENSION_BUNDLE_IDENTIFIER from BUNDLE_IDENTIFIER
-    EXTENSION_BUNDLE_IDENTIFIER="${BUNDLE_IDENTIFIER}.NotificationServiceExtension"
-    log "DEBUG" "Auto-generated EXTENSION_BUNDLE_IDENTIFIER: ${EXTENSION_BUNDLE_IDENTIFIER}"
-    
+
     # Always create APP_GROUP_IDENTIFIER from BUNDLE_IDENTIFIER
     APP_GROUP_IDENTIFIER="group.${BUNDLE_IDENTIFIER}"
     log "DEBUG" "Auto-generated APP_GROUP_IDENTIFIER: ${APP_GROUP_IDENTIFIER}"
+
+    #######################################
+    # Cleanup handler for script errors
+    # Removes temporary files if script fails
+    #######################################
+    cleanup_on_error() {
+        local exit_code=$?
+        if [[ ${exit_code} -ne 0 ]]; then
+            if [[ -n "${DESTINATION_FOLDER_PATH}" ]] && [[ -d "${DESTINATION_FOLDER_PATH}" ]]; then
+                log "WARN" "Script failed with exit code ${exit_code}"
+                log "WARN" "Cleaning up temporary directory: ${DESTINATION_FOLDER_PATH}"
+                rm -rf "${DESTINATION_FOLDER_PATH}"
+                log "INFO" "Cleanup completed"
+            fi
+        fi
+    }
+
+    # Register trap for cleanup on error
+    trap cleanup_on_error EXIT
 
     log "DEBUG" "Script started with verbose mode: ${VERBOSE}"
     log "DEBUG" "FILE: ${FILE}"
@@ -1140,18 +1255,29 @@ main()
         exit 1
     fi
     
-    # Validate provisioning profiles
-    if ! validate_provisioning_profiles; then
-        log "ERROR" "Failed to validate provisioning profiles"
-        exit 1
-    fi
-    
     # Unzip the IPA file
     if ! unzip_ipa; then
         log "ERROR" "Failed to unzip IPA file"
         exit 1
     fi
-    
+
+    # Validate IPA structure
+    if ! validate_ipa_structure; then
+        log "ERROR" "Invalid IPA structure"
+        exit 1
+    fi
+
+    # Auto-detect extension suffix after unzip
+    EXTENSION_SUFFIX=$(detect_extension_suffix)
+    EXTENSION_BUNDLE_IDENTIFIER="${BUNDLE_IDENTIFIER}.${EXTENSION_SUFFIX}"
+    log "INFO" "Extension bundle identifier: ${EXTENSION_BUNDLE_IDENTIFIER}"
+
+    # Validate provisioning profiles (after EXTENSION_BUNDLE_IDENTIFIER is set)
+    if ! validate_provisioning_profiles; then
+        log "ERROR" "Failed to validate provisioning profiles"
+        exit 1
+    fi
+
     # Delete existing signatures
     if ! delete_signature; then
         log "ERROR" "Failed to delete signatures"
